@@ -166,10 +166,10 @@ def checkin(username, passwd, passwd_vpn, use_vpn=True):
     return output
 
 
-# def send_mail(msg: str, title: str, to: str):
-#     if not debug:
-#         post = requests.post(mail_server_url, data=json.dumps({"title": title, "body": msg, "dest": to}))
-#         return post
+def send_mail(msg: str, title: str, to: str):
+    if not debug:
+        post = requests.post(mail_server_url, data=json.dumps({"title": title, "body": msg, "dest": to}))
+        return post
 
 
 CONFIG_KEYS = ["username", "password", "password_vpn", "email"]
@@ -183,7 +183,7 @@ def fail(msg: str, title: str, email: str = "", e: Exception = None, shutdown=Tr
     if run_fail:
         raise RuntimeError(msg)
     if shutdown:
-        # send_mail(msg, title, email)
+        send_mail(msg, title, email)
         exit(0)
 
 
@@ -220,7 +220,7 @@ def main():
                 )
                 logger.info(output)
                 if output != "打卡失败":
-                    # send_mail(f"账号【{config['username']}】{output}", "打卡成功", config["email"])
+                    send_mail(f"账号【{config['username']}】{output}", "打卡成功", config["email"])
                     success = True
                     break
                 logger.info("通过VPN打卡失败，尝试直接连接")
@@ -230,7 +230,7 @@ def main():
                     config["password_vpn"], False
                 )
                 if output != "打卡失败":
-                    # send_mail(f"账号【{config['username']}】{output}", "打卡成功", config["email"])
+                    send_mail(f"账号【{config['username']}】{output}", "打卡成功", config["email"])
                     success = True
                     break
             except Exception as e:

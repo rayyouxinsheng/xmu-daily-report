@@ -1,0 +1,22 @@
+{
+  "config": [
+    {
+      "username": "23020201153762",
+      "password": "Raygulers928",
+      "password_vpn": "Raygulers928",
+      "email": "请在这里输入您的邮箱地址，保留引号"
+    },
+    {
+      "username": "23020201153810",
+      "password": "WYwy5201314",
+      "password_vpn": "WYwy5201314",
+      "email": "请在这里输入您的邮箱地址，保留引号"
+    },
+    {
+      "username": "23020201153843",
+      "password": "Lj9328486",
+      "password_vpn": "Lj9328486",
+      "email": "请在这里输入您的邮箱地址，保留引号"
+    }
+  ]
+}
