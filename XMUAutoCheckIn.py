@@ -4,6 +4,7 @@ import logging
 import os
 import time
 import traceback
+import re
 from typing import List, Callable
 
 import random
@@ -80,13 +81,39 @@ def select_dropdown(driver: WebDriver, dropdown_xpath: str, target_xpath: str, c
     time.sleep(1)
     click_given_xpath(driver, target_xpath, f"{comment} 选项")
 
+def input_text(driver: WebDriver, xpath: str, text: str, comment: str):
+    # 输入前先清除已有文本
+    must_operate_element_by_xpath(driver, xpath, lambda x: x.clear(), f"清空 {comment}")
+    time.sleep(1)
+    must_operate_element_by_xpath(driver, xpath, lambda x: x.send_keys(text), f"输入 {comment}")
 
-def checkin(username, passwd, passwd_vpn, email, use_vpn=True) -> None:
+def stu_num_mask(student_num):
+    return student_num[0] + 9 * '*' + student_num[10:]
+
+def checkin(config, use_vpn=True) -> None:
     if debug:
         driver = webdriver.Edge()
     else:
         driver = webdriver.Chrome(options=chrome_options)
     driver.maximize_window()
+
+    username = config['username']
+    passwd = config['password']
+    passwd_vpn = config['password_vpn']
+    email = config['email']
+    building = config['building']
+    room_num = config['room_num']
+
+    # 使用正则表达式检查校区填写 而不是 ==
+    if re.search('思明', config['campus']):
+        campus = r"思明校区 Siming" 
+    elif re.search('翔安', config['campus']):
+        campus = r"翔安校区 Xiang'an" 
+    elif re.search('漳州', config['campus']):
+        campus = r"漳州校区 Zhangzhou"
+    else:
+        raise RuntimeError("校区信息错误")
+
     login_url = VPN_LOGIN_URL if use_vpn else DIRECT_LOGIN_URL
     checkin_url = VPN_CHECKIN_URL if use_vpn else DIRECT_CHECKIN_URL
     logger.info("准备工作完成")
@@ -145,9 +172,20 @@ def checkin(username, passwd, passwd_vpn, email, use_vpn=True) -> None:
     dropdowns = [
         ['//*[@id="address_1582538163410"]/div/div[1]/div/div', '//label[@title="福建省"][1]', '省'],
         ['//*[@id="address_1582538163410"]/div/div[2]/div/div', '//label[@title="厦门市"][1]', '市'],
-        ['//*[@id="address_1582538163410"]/div/div[3]/div/div', '//label[@title="思明区"][1]', '区'],
+        ['//*[@id="address_1582538163410"]/div/div[3]/div/div', '//label[@title="翔安区"][1]', '区'],
+        ['//*[@id="select_1611108284522"]/div/div/span[1]', '//label[@title="在校"][1]', '是否在校'],
+        ['//*[@id="select_1582538643070"]/div/div/span[1]', '//label[@title="%s"][1]' % campus, '校区'],
+        ['//*[@id="select_1611110401193"]/div/div/span[1]', '//label[@title="住校内  Yes，on campus"][1]', '住校内'],
+        ['//*[@id="select_1611108377024"]/div/div/span[1]', '//label[@title="住校内学生宿舍"][1]', '住校内学生宿舍'],
+        ['//*[@id="select_1611108445364"]/div/div/span[1]', '//label[@title="%s"][1]' % building, '宿舍楼号'],
         ["//*[@id='select_1582538939790']/div/div/span[1]", "/html/body/div[8]/ul/div/div[3]/li/label", '本人承诺']
     ]
+
+    # 规则同上
+    input_infos = [
+        ['//*[@id="input_1611108449736"]/input', room_num, '房间号'],
+    ]
+
     for dropdown in dropdowns:
         if NULL in get_text(driver, dropdown[0], dropdown[2]):
             select_dropdown(driver, *dropdown)
@@ -155,6 +193,11 @@ def checkin(username, passwd, passwd_vpn, email, use_vpn=True) -> None:
         else:
             logger.info(f'{dropdown[2]} 已填写')
 
+    for input_info in input_infos:
+        # 输入型字段一律先清除后输入 不检查填写情况
+        input_text(driver, *input_info)
+        time.sleep(1)
+        
     # 点击保存按钮
     click_given_xpath(driver, "//span[starts-with(text(),'保存')][1]", "保存")
 
@@ -180,7 +223,7 @@ def send_mail(msg: str, title: str, to: str):
         logger.info(msg)
 
 
-CONFIG_KEYS = ["username", "password", "password_vpn", "email"]
+CONFIG_KEYS = ["username", "password", "password_vpn", "email", 'campus', 'building', 'room_num']
 
 
 def fail(msg: str, title: str, email: str = "", e: Exception = None, shutdown=True, run_fail=False):
@@ -218,16 +261,17 @@ def main():
     configs = get_configs()
     logger.info(f"已配置 {len(configs)} 个账号")
     for config in configs:
-        logger.info(f"账号【{config['username']}】正在运行")
+
+        # Github Action Log可能导致个人信息泄露 进行隐藏
+        masked_num = stu_num_mask(config['username'])
+        logger.info(f"账号【{masked_num}】正在运行")
         success = False
         for i in range(1, 2 if debug else 11):
             logger.info(f'第{i}次尝试')
             try:
                 checkin(
-                    config["username"],
-                    config["password"],
-                    config["password_vpn"],
-                    config['email'], False
+                    config, 
+                    False
                 )
                 success = True
                 break
@@ -235,17 +279,15 @@ def main():
                 logger.info("直连打卡失败，尝试VPN")
                 try:
                     checkin(
-                        config["username"],
-                        config["password"],
-                        config["password_vpn"],
-                        config['email'], True
+                        config, 
+                        True
                     )
                     success = True
                     break
                 except Exception as e:
                     fail("尝试失败", "打卡失败", "", e, shutdown=False)
         if not success:
-            fail(f"账号【{config['username']}】重试10次后依然打卡失败，请排查日志",
+            fail(f"账号【{masked_num}】重试10次后依然打卡失败，请排查日志",
                  "打卡失败", config["email"])
 
 
