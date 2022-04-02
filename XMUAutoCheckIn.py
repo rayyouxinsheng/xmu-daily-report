@@ -210,17 +210,13 @@ def checkin(config, use_vpn=True) -> None:
     time.sleep(1)
     driver.close()
     logger.info("打卡成功")
-    send_mail(f"账号【{username}】打卡成功", "打卡成功", email)
+    
+    
+    (f"账号【{username}】打卡成功", "打卡成功", email)
 
 
 def send_mail(msg: str, title: str, to: str):
-    msg += '\n\n【运行日志】\n' + log_stream.getvalue()
-    if not debug:
-        post = requests.post(MAIL_SERVER_URL, data=json.dumps(
-            {"title": title, "body": msg, "dest": to}))
-        return post
-    else:
-        logger.info(msg)
+    return
 
 
 CONFIG_KEYS = ["username", "password", "password_vpn", "email", 'campus', 'building', 'room_num']
